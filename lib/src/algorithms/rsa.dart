@@ -1,14 +1,4 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:asn1lib/asn1lib.dart';
-import 'package:pointycastle/api.dart' hide Algorithm;
-import 'package:pointycastle/asymmetric/api.dart';
-import "package:pointycastle/asymmetric/pkcs1.dart";
-import 'package:pointycastle/asymmetric/rsa.dart';
-
-import './helpers.dart';
-import '../encrypt.dart';
+part of encrypt;
 
 /// Wraps the RSA Engine Algorithm.
 class RSA extends Algorithm {
@@ -20,32 +10,34 @@ class RSA extends Algorithm {
 
   final AsymmetricBlockCipher _cipher = PKCS1Encoding(RSAEngine());
 
-  RSA(this.publicKey, this.privateKey)
+  RSA({this.publicKey, this.privateKey})
       : this._publicKeyParams = PublicKeyParameter(publicKey),
         this._privateKeyParameter = PrivateKeyParameter(privateKey);
 
   @override
-  String encrypt(String plainText) {
+  Encrypted encrypt(Uint8List bytes) {
+    if (publicKey == null) {
+      throw StateError('Can\'t encrypt without a public key, null given.');
+    }
+
     _cipher
       ..reset()
       ..init(true, _publicKeyParams);
 
-    final input = Uint8List.fromList(plainText.codeUnits);
-    final output = _cipher.process(input);
-
-    return formatBytesAsHexString(output);
+    return Encrypted(_cipher.process(bytes));
   }
 
   @override
-  String decrypt(String cipherText) {
+  Uint8List decrypt(Encrypted encrypted) {
+    if (privateKey == null) {
+      throw StateError('Can\'t decrypt without a private key, null given.');
+    }
+
     _cipher
       ..reset()
       ..init(false, _privateKeyParameter);
 
-    final input = createUint8ListFromHexString(cipherText);
-    final output = _cipher.process(input);
-
-    return String.fromCharCodes(output);
+    return _cipher.process(encrypted.bytes);
   }
 }
 
@@ -99,7 +91,7 @@ class RSAKeyParser {
         .map((row) => row.trim())
         .join('');
 
-    final keyBytes = Uint8List.fromList(base64.decode(keyText));
+    final keyBytes = Uint8List.fromList(convert.base64.decode(keyText));
     final asn1Parser = ASN1Parser(keyBytes);
 
     return asn1Parser.nextObject() as ASN1Sequence;

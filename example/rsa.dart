@@ -1,6 +1,6 @@
-import 'package:encrypt/encrypt.dart';
 import 'dart:io';
 
+import 'package:encrypt/encrypt.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 
 void main() {
@@ -13,13 +13,15 @@ void main() {
   final RSAPrivateKey privateKey =
       parser.parse(privateKeyFile.readAsStringSync());
 
-  final encrypter = Encrypter(RSA(publicKey, privateKey));
   final plainText = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit';
+  final encrypter =
+      Encrypter(RSA(publicKey: publicKey, privateKey: privateKey));
 
-  final encryptedText = encrypter.encrypt(plainText);
-  final decryptedText = encrypter.decrypt(encryptedText);
+  final encrypted = encrypter.encrypt(plainText);
+  final decrypted = encrypter.decrypt(encrypted);
 
-  print('Hexdecimal: $encryptedText');
-  print('Base64: ${from16To64(encryptedText)}');
-  print(decryptedText);
+  print(decrypted);
+  print(encrypted.bytes);
+  print(encrypted.base16);
+  print(encrypted.base64);
 }

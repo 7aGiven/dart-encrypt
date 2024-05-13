@@ -8,89 +8,129 @@ A set of high-level APIs over PointyCastle for two-way cryptography.
 
 > Looking for password hashing? Please, visit [password](https://github.com/leocavalcante/password-dart).
 
-## AES (Block Cipher)
+## API Overview
+
+### `Encrypter(Algorithm algo)`
+Acts like a Adapter interface for any algorithm. Exposes:
+- `Encrypted encrypt(String text)` encrypts the given plain-text.
+- `String decrypt(Encrypted encrypted)` decrypts the given `Encrypted` value.
+- `String decrypt16(String encoded)` sugar for `decrypt(Encrypted.fromBase16(encoded))`.
+- `String decrypt64(String encoded)` sugar for `decrypt(Encrypted.fromBase64(encoded))`.
+
+### `Encrypted(Uint8List bytes)`
+Wraps the encrypted bytes. Exposes:
+- `Encrypted.fromBase16(String encoded)` creates an Encrypted object from a hexdecimal string.
+- `Encrypted.fromBase64(String encoded)` creates an Encrypted object from a Base64 string.
+- `String base16` returns a hexdecimal representation of the bytes.
+- `String base64` returns a Base64 representation of the bytes.
+- `Uint8List bytes` returns raw bytes.
+
+### `Key(Uint8List bytes)`
+Represents an Encryption Key. Exposes:
+- `Key.fromBase16(String encoded)` creates a Key from a hexdecimal string.
+- `Key.fromBase64(String encoded)` creates a Key from a Base64 string.
+- `Key.fromUtf8(String encoded)` creates a Key from a UTF-8 string.
+- `Key.fromLength(int length)` sugar for `Key(Uint8List(length))`.
+
+### `IV(Uint8List bytes)`
+Represents an Initialization Vector https://en.wikipedia.org/wiki/Initialization_vector. Exposes:
+- `IV.fromBase16(String encoded)` creates an IV from a hexdecimal string.
+- `IV.fromBase64(String encoded)` creates an IV from a Base64 string.
+- `IV.fromUtf8(String encoded)` creates an IV from a UTF-8 string.
+- `IV.fromLength(int length)` sugar for `IV(Uint8List(length))`.
+
+## Algorithms
+Current status is:
+- AES with PKCS7 padding
+- RSA with PKCS1 encoding
+- Salsa20
+
+## Usage
+
+### Symmetric
+
+#### AES
 ```dart
 import 'package:encrypt/encrypt.dart';
 
 void main() {
-  final key = 'my32lengthsupersecretnooneknows1';
+  final plainText = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit';
+  final key = Key.fromUtf8('my 32 length key................');
+  final iv = IV.fromLength(16);
 
-  final encrypter = new Encrypter(new AES(key));
-  final plainText = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit ........';
-
-  final encryptedText = encrypter.encrypt(plainText);
-  final decryptedText = encrypter.decrypt(encryptedText);
-
-  print(encryptedText); // db066ce180f62f020617eb720b891c1efcc48b217cb83272812a8efe3b30e7eae4373ddcede4ea77bdae77d126d95457b3759b1983bf4cb4a6a5b051a5690bdf
-  print(decryptedText); // Lorem ipsum dolor sit amet, consectetur adipiscing elit ........
-}
-```
-
-## Salsa20 (Stream Cipher)
-```dart
-import 'package:encrypt/encrypt.dart';
-
-void main() {
-  final key = 'private!!!!!!!!!';
-  final iv = '8bytesiv'; // https://en.wikipedia.org/wiki/Initialization_vector
-  final plainText = 'Secret';
-
-  final encrypter = new Encrypter(new Salsa20(key, iv));
+  final encrypter = Encrypter(AES(key, iv));
 
   final encrypted = encrypter.encrypt(plainText);
   final decrypted = encrypter.decrypt(encrypted);
 
-  print(encrypted); // c5cc91943cf0
-  print(decrypted); // Secret
+  print(decrypted); // Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  print(encrypted.base64); // R4PxiU3h8YoIRqVowBXm36ZcCeNeZ4s1OvVBTfFlZRdmohQqOpPQqD1YecJeZMAop/hZ4OxqgC1WtwvX/hP9mw==
 }
 ```
 
-### Chinese example
+##### Mode of operation
+
+Default mode is SIC `AESMode.sic`, you can override it using the `mode` named parameter:
+
+```dart
+final encrypter = Encrypter(AES(key, iv, mode: AESMode.cbc));
+}
+```
+
+###### Supported modes are:
+- CBC `AESMode.cbc`
+- CFB-64 `AESMode.cfb64`
+- CTR `AESMode.ctr`
+- ECB `AESMode.ecb`
+- OFB-64/GCTR `AESMode.ofb64Gctr`
+- OFB-64 `AESMode.ofb64`
+- SIC `AESMode.sic`
+
+
+#### Salsa20
 ```dart
 import 'package:encrypt/encrypt.dart';
 
 void main() {
-  final key = '1234567890123456';
-  final iv = '8bytesiv';
-  final encryptor = Encrypter(Salsa20(key, iv));
-  String text = '你好';
-  String base64Text = base64.encode(utf8.encode(text));
-  String encText  = encryptor.encrypt(base64Text);
-  var decStr = utf8.decode(base64.decode(encryptor.decrypt(encText)));
+  final plainText = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit';
+  final key = Key.fromLength(32);
+  final iv = IV.fromLength(8);
+  final encrypter = Encrypter(Salsa20(key, iv));
 
-  print('origin:'+text);//你好
-  print('base64Text:'+base64Text);//5L2g5aW9
-  print('enc text:'+encText);//c72f29fd34b15145
-  print('dec text:'+decStr);//你好
+  final encrypted = encrypter.encrypt(plainText);
+  final decrypted = encrypter.decrypt(encrypted);
+
+  print(decrypted); // Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  print(encrypted.base64); // CR+IAWBEx3sA/dLkkFM/orYr9KftrGa7lIFSAAmVPbKIOLDOzGwEi9ohstDBqDLIaXMEeulwXQ==
 }
 ```
 
-## RSA+PKCS1 (Asymmetric)
-```dart
-import 'package:encrypt/encrypt.dart';
-import 'dart:io';
+### Asymmetric
 
+#### RSA
+```dart
+import 'dart:io';
+import 'package:encrypt/encrypt.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 
 void main() {
-  final publicKeyFile = File('test/public.pem');
-  final privateKeyFile = File('test/private.pem');
+  final publicKeyFile = File('/path/to/public_key.pem');
+  final privateKeyFile = File('/path/to/private_key.pem');
 
   final parser = RSAKeyParser();
-
   final RSAPublicKey publicKey = parser.parse(publicKeyFile.readAsStringSync());
-  final RSAPrivateKey privateKey =
-      parser.parse(privateKeyFile.readAsStringSync());
+  final RSAPrivateKey privateKey = parser.parse(privateKeyFile.readAsStringSync());
 
-  final encrypter = Encrypter(RSA(publicKey, privateKey));
   final plainText = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit';
+  final encrypter = Encrypter(RSA(publicKey: publicKey, privateKey: privateKey));
 
-  final encryptedText = encrypter.encrypt(plainText);
-  final decryptedText = encrypter.decrypt(encryptedText);
+  final encrypted = encrypter.encrypt(plainText);
+  final decrypted = encrypter.decrypt(encrypted);
 
-  print('Hexdecimal: $encryptedText');
-  print('Base64: ${from16To64(encryptedText)}');
-  print(decryptedText);
+  print(decrypted); // Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  print(encrypted.base64); // XWMuHTeO86gC6SsUh14h+jc4iQW7Vy0TDaBKN926QWhg5c3KKoSuF+6uedLWBEis0LYgTON2rhtTOjmb6bU2P27lgf+5JKdLGKqri2F4sCS3+/p/EPb41f60vnr3whX2o5VRJhJagxtrq0V3eu3X4UeRiO2y7yOt6MXyJxMFcXs=
 }
 ```
----
+##### Note
+If you are just encrypting or just decrypting, you can ignore the respectives `privateKey` and `publicKey`.
+Trying the encrypt without a public key or decrypt without a private key will throw a `StateError`.
