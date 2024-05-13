@@ -4,38 +4,39 @@ part of encrypt;
 class RSA extends Algorithm {
   final RSAPublicKey publicKey;
   final RSAPrivateKey privateKey;
+  final bool isSignature;
 
   final PublicKeyParameter<RSAPublicKey> _publicKeyParams;
-  final PrivateKeyParameter<RSAPrivateKey> _privateKeyParameter;
+  final PrivateKeyParameter<RSAPrivateKey> _privateKeyParams;
 
   final AsymmetricBlockCipher _cipher = PKCS1Encoding(RSAEngine());
 
-  RSA({this.publicKey, this.privateKey})
+  RSA({this.publicKey, this.privateKey, this.isSignature = false})
       : this._publicKeyParams = PublicKeyParameter(publicKey),
-        this._privateKeyParameter = PrivateKeyParameter(privateKey);
+        this._privateKeyParams = PrivateKeyParameter(privateKey);
 
   @override
   Encrypted encrypt(Uint8List bytes, {IV iv}) {
-    if (publicKey == null) {
+    if (!isSignature && publicKey == null) {
       throw StateError('Can\'t encrypt without a public key, null given.');
     }
 
     _cipher
       ..reset()
-      ..init(true, _publicKeyParams);
+      ..init(true, isSignature ? _privateKeyParams : _publicKeyParams);
 
     return Encrypted(_cipher.process(bytes));
   }
 
   @override
   Uint8List decrypt(Encrypted encrypted, {IV iv}) {
-    if (privateKey == null) {
+    if (!isSignature && privateKey == null) {
       throw StateError('Can\'t decrypt without a private key, null given.');
     }
 
     _cipher
       ..reset()
-      ..init(false, _privateKeyParameter);
+      ..init(false, isSignature ? _publicKeyParams : _privateKeyParams);
 
     return _cipher.process(encrypted.bytes);
   }
@@ -97,7 +98,7 @@ class RSAKeyParser {
   }
 
   ASN1Sequence _pkcs8PublicSequence(ASN1Sequence sequence) {
-    final ASN1BitString bitString = sequence.elements[1] as ASN1BitString;
+    final ASN1Object bitString = sequence.elements[1];
     final bytes = bitString.valueBytes().sublist(1);
     final parser = ASN1Parser(Uint8List.fromList(bytes));
 
@@ -105,7 +106,7 @@ class RSAKeyParser {
   }
 
   ASN1Sequence _pkcs8PrivateSequence(ASN1Sequence sequence) {
-    final ASN1BitString bitString = sequence.elements[2] as ASN1BitString;
+    final ASN1Object bitString = sequence.elements[2];
     final bytes = bitString.valueBytes();
     final parser = ASN1Parser(bytes);
 
