@@ -15,7 +15,7 @@ You can generate cryptographically secure random keys and IVs for you project.
 Activate the encrypt package:
 
 ```bash
-pub global active encrypt
+pub global activate encrypt
 ```
 
 Then use the `secure-random` command-line tool:
@@ -74,13 +74,12 @@ void main() {
 }
 ```
 
-##### Mode of operation
+##### Modes of operation
 
 Default mode is SIC `AESMode.sic`, you can override it using the `mode` named parameter:
 
 ```dart
 final encrypter = Encrypter(AES(key, mode: AESMode.cbc));
-}
 ```
 
 ###### Supported modes are:
@@ -92,6 +91,14 @@ final encrypter = Encrypter(AES(key, mode: AESMode.cbc));
 - OFB-64/GCTR `AESMode.ofb64Gctr`
 - OFB-64 `AESMode.ofb64`
 - SIC `AESMode.sic`
+
+##### No/zero padding 
+
+To remove padding, pass `null` to the `padding` named parameter on the constructor:
+
+```dart
+final encrypter = Encrypter(AES(key, mode: AESMode.cbc, padding: null));
+```
 
 #### Salsa20
 
@@ -171,5 +178,5 @@ void main() {
  final signer = Signer(RSASigner(RSASignDigest.SHA256, publicKey: publicKey, privateKey: privateKey));
 
  print(signer.sign('hello world').base64);
- print(signer.verify(Encrypted.from64('jfMhNM2v6hauQr6w3ji0xNOxGInHbeIH3DHlpf2W3vmSMyAuwGHG0KLcunggG4XtZrZPAib7oHaKEAdkHaSIGXAtEqaAvocq138oJ7BEznA4KVYuMcW9c8bRy5E4tUpikTpoO+okHdHr5YLc9y908CAQBVsfhbt0W9NClvDWegs=')));
+ print(signer.verify64('hello world', 'jfMhNM2v6hauQr6w3ji0xNOxGInHbeIH3DHlpf2W3vmSMyAuwGHG0KLcunggG4XtZrZPAib7oHaKEAdkHaSIGXAtEqaAvocq138oJ7BEznA4KVYuMcW9c8bRy5E4tUpikTpoO+okHdHr5YLc9y908CAQBVsfhbt0W9NClvDWegs='));
 ```
